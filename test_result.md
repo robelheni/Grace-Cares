@@ -102,7 +102,26 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Verify that the previously reported 'Network Error / AxiosError: Network Error' issue on the Grace Cares site is resolved after fixing the REACT_APP_BACKEND_URL configuration."
+user_problem_statement: "Verify bug fix: webpack-dev-server overlay should NOT show 'Uncaught runtime errors' for transient axios network errors. The fix in craco.config.js suppresses network/canceled errors from the runtime-error overlay while keeping the site functional."
+
+frontend:
+  - task: "Webpack dev server overlay suppression for network errors"
+    implemented: true
+    working: true
+    file: "/app/frontend/craco.config.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ SCENARIO 1 PASS: Normal browsing on all pages (/, /shop, /impact, /events, /news) - NO webpack-dev-server-client-overlay element found, NO 'Uncaught runtime errors' text visible. All pages load correctly with proper content."
+      - working: true
+        agent: "testing"
+        comment: "✅ SCENARIO 2 PASS: Simulated network failure test - Aborted 4 API requests (/api/events, /api/articles) using Playwright route interception. Console logs show 'PAGE ERROR: Network Error' but NO overlay appeared on page. Page still rendered correctly (header, nav, hero visible). The craco.config.js runtimeErrors filter successfully suppresses transient network errors from the overlay."
+      - working: true
+        agent: "testing"
+        comment: "✅ Console logs confirm: Expected 401 from /api/auth/me (logged-out user), Cloudflare RUM errors (unrelated), and 4 'Network Error' messages during simulated failure. Despite these errors, no full-screen overlay appeared, proving the fix works as intended."
 
 frontend:
   - task: "Backend connectivity - Homepage data loading"
@@ -203,13 +222,13 @@ frontend:
 
 metadata:
   created_by: "testing_agent"
-  version: "1.0"
-  test_sequence: 1
+  version: "1.1"
+  test_sequence: 2
   run_ui: true
 
 test_plan:
   current_focus:
-    - "All backend connectivity tests completed"
+    - "Webpack dev server overlay bug fix verification completed"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
@@ -217,3 +236,5 @@ test_plan:
 agent_communication:
   - agent: "testing"
     message: "✅ VERIFICATION COMPLETE: The previously reported 'Network Error / AxiosError: Network Error' issue is RESOLVED. All backend API calls are working correctly. Tested all requested pages (Homepage, Shop, Product Detail, Impact, Events, News, Cart) and confirmed data loads successfully from https://show-site-4.preview.emergentagent.com/api. The only errors detected are: (1) Expected 401 from /api/auth/me for logged-out users, and (2) Cloudflare RUM monitoring errors (cdn-cgi/rum) which are unrelated to backend API. NO Network Error or CORS issues found."
+  - agent: "testing"
+    message: "✅ BUG FIX VERIFICATION COMPLETE: The webpack-dev-server overlay bug fix is working correctly. Tested both scenarios: (1) Normal browsing - no overlay on any page, (2) Simulated network failures - even with aborted API requests causing Network Errors, no overlay appeared. The craco.config.js runtimeErrors filter successfully suppresses transient axios network/canceled errors while keeping the site functional. Console logs show errors are still logged but not displayed in the full-screen overlay. PASS on both scenarios."

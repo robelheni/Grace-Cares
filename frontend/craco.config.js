@@ -108,6 +108,30 @@ let webpackConfig = {
 };
 
 webpackConfig.devServer = (devServerConfig) => {
+  // Keep the dev overlay for real compile/runtime errors, but do NOT let
+  // transient axios "Network Error" / canceled/aborted request rejections
+  // pop the full-screen "Uncaught runtime errors" overlay. The app degrades
+  // gracefully for these, so the overlay is just noise for end users.
+  const existingOverlay =
+    devServerConfig.client && typeof devServerConfig.client.overlay === "object"
+      ? devServerConfig.client.overlay
+      : {};
+  devServerConfig.client = {
+    ...(devServerConfig.client || {}),
+    overlay: {
+      ...existingOverlay,
+      errors: true,
+      warnings: false,
+      runtimeErrors: (error) => {
+        const msg = (error && (error.message || String(error))) || "";
+        // Suppress only transient network-layer errors; show everything else.
+        if (/Network Error/i.test(msg)) return false;
+        if (/ERR_NETWORK|ERR_CANCELED|CanceledError|canceled|cancelled|aborted|AbortError/i.test(msg)) return false;
+        return true;
+      },
+    },
+  };
+
   // Add health check endpoints if enabled
   if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
     const originalSetupMiddlewares = devServerConfig.setupMiddlewares;
