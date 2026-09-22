@@ -101,3 +101,119 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Verify that the previously reported 'Network Error / AxiosError: Network Error' issue on the Grace Cares site is resolved after fixing the REACT_APP_BACKEND_URL configuration."
+
+frontend:
+  - task: "Backend connectivity - Homepage data loading"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Home.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ Homepage loads successfully. API calls to /api/products, /api/homepage, /api/events, /api/articles all return 200 OK. Found 12 product cards, 4 impact stats. No Network Error or AxiosError detected."
+
+  - task: "Backend connectivity - Shop page product listing"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Shop.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ Shop page loads successfully. API calls to /api/products and /api/categories return 200 OK. 16 products displayed with filters working. No Network Error detected."
+
+  - task: "Backend connectivity - Product detail page"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/ProductDetail.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ Product detail page loads successfully. Product data displays correctly with price and stock status. No Network Error detected."
+
+  - task: "Backend connectivity - Our Impact page"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Impact.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ Impact page loads successfully. API calls to /api/articles?is_impact=true and /api/homepage return 200 OK. 4 impact statistics and 1 impact story displayed. No Network Error detected."
+
+  - task: "Backend connectivity - Events & Activities page"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Events.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ Events page loads successfully. API call to /api/events returns 200 OK. 3 event cards displayed. No Network Error detected."
+
+  - task: "Backend connectivity - News page"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/News.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ News page loads successfully. API call to /api/articles returns 200 OK. 2 news articles displayed. No Network Error detected."
+
+  - task: "Backend connectivity - Cart/Basket page"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/Cart.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ Cart page loads successfully. Empty cart state displays correctly. No Network Error detected."
+
+  - task: "REACT_APP_BACKEND_URL configuration"
+    implemented: true
+    working: true
+    file: "/app/frontend/.env"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ REACT_APP_BACKEND_URL is correctly configured as https://show-site-4.preview.emergentagent.com. All API calls use the correct base URL https://show-site-4.preview.emergentagent.com/api."
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "All backend connectivity tests completed"
+  stuck_tasks: []
+  test_all: true
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "testing"
+    message: "✅ VERIFICATION COMPLETE: The previously reported 'Network Error / AxiosError: Network Error' issue is RESOLVED. All backend API calls are working correctly. Tested all requested pages (Homepage, Shop, Product Detail, Impact, Events, News, Cart) and confirmed data loads successfully from https://show-site-4.preview.emergentagent.com/api. The only errors detected are: (1) Expected 401 from /api/auth/me for logged-out users, and (2) Cloudflare RUM monitoring errors (cdn-cgi/rum) which are unrelated to backend API. NO Network Error or CORS issues found."
