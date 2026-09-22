@@ -21,6 +21,8 @@ const NAV = [
 export function Header() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [suggest, setSuggest] = useState(null);
+  const [showSuggest, setShowSuggest] = useState(false);
   const { count } = useCart();
   const { user } = useAuth();
   const nav = useNavigate();
@@ -28,7 +30,23 @@ export function Header() {
   useEffect(() => { api.get("/homepage").then((r) => { const s = r.data.settings || {}; if (s.announcement_active && s.announcement_text) setAnnounce(s); }).catch(() => {}); }, []);
   const isAdmin = user && user.role && user.role !== "customer";
 
-  const submitSearch = (e) => { e.preventDefault(); nav(`/shop?q=${encodeURIComponent(q)}`); setOpen(false); };
+  // Predictive type-ahead (debounced)
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2) { setSuggest(null); return; }
+    const t = setTimeout(() => {
+      api.get(`/search/suggest?q=${encodeURIComponent(term)}`)
+        .then((r) => { setSuggest(r.data); setShowSuggest(true); })
+        .catch(() => {});
+    }, 200);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  const goProduct = (id) => { setShowSuggest(false); setQ(""); setOpen(false); nav(`/product/${id}`); };
+  const goCategory = (id) => { setShowSuggest(false); setQ(""); setOpen(false); nav(`/shop?category_id=${id}`); };
+  const submitSearch = (e) => { e.preventDefault(); setShowSuggest(false); nav(`/shop?q=${encodeURIComponent(q)}`); setOpen(false); };
+
+  const hasSuggestions = suggest && ((suggest.products || []).length > 0 || (suggest.categories || []).length > 0 || suggest.did_you_mean);
 
   return (
     <header className="bg-white border-b border-brand-border sticky top-0 z-50" data-testid="site-header">
@@ -56,11 +74,38 @@ export function Header() {
             <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-green" />
             <input
               value={q} onChange={(e) => setQ(e.target.value)}
+              onFocus={() => q.trim().length >= 2 && setShowSuggest(true)}
+              onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
               placeholder="Search care equipment…"
               aria-label="Search care equipment"
               data-testid="header-search-input"
               className="w-full rounded-full border border-[#8C8C8C] bg-white pl-11 pr-4 py-2.5 text-base focus:border-brand-green"
             />
+            {showSuggest && hasSuggestions && (
+              <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-brand-border rounded-2xl shadow-lg overflow-hidden z-50" data-testid="search-suggestions">
+                {suggest.did_you_mean && (
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); setQ(suggest.did_you_mean); }} className="w-full text-left px-4 py-2.5 text-sm text-[#4A4A4D] hover:bg-brand-green/5 border-b border-brand-border">
+                    Did you mean <span className="font-bold text-brand-green">{suggest.did_you_mean}</span>?
+                  </button>
+                )}
+                {(suggest.categories || []).map((c) => (
+                  <button key={`c-${c.id}`} type="button" onMouseDown={(e) => { e.preventDefault(); goCategory(c.id); }} className="w-full text-left px-4 py-2.5 hover:bg-brand-green/5 flex items-center gap-2" data-testid={`suggest-cat-${c.id}`}>
+                    <SlidersHorizontal size={16} className="text-brand-green" /> <span className="font-semibold text-brand-green">{c.name}</span>
+                    <span className="text-xs text-[#8C8C8C] ml-auto">Category</span>
+                  </button>
+                ))}
+                {(suggest.products || []).map((p) => (
+                  <button key={p.id} type="button" onMouseDown={(e) => { e.preventDefault(); goProduct(p.id); }} className="w-full text-left px-4 py-2.5 hover:bg-brand-green/5 flex items-center gap-3" data-testid={`suggest-product-${p.id}`}>
+                    {p.image ? <img src={p.image} alt="" className="h-9 w-9 rounded object-cover" /> : <span className="h-9 w-9 rounded bg-brand-green/10 inline-block" />}
+                    <span className="flex-1 min-w-0"><span className="block truncate font-semibold text-[#333]">{p.name}</span></span>
+                    {typeof p.price_inc_vat === "number" && <span className="text-brand-green font-bold">£{p.price_inc_vat.toFixed(2)}</span>}
+                  </button>
+                ))}
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); submitSearch(e); }} className="w-full text-center px-4 py-2.5 text-sm font-semibold text-brand-terracotta hover:bg-brand-green/5 border-t border-brand-border" data-testid="suggest-see-all">
+                  See all results for “{q}”
+                </button>
+              </div>
+            )}
           </div>
         </form>
 
@@ -131,6 +176,8 @@ export function Footer() {
             <li><Link to="/nhs" className="hover:underline">NHS & Care Providers</Link></li>
             <li><Link to="/get-involved" className="hover:underline">Volunteer</Link></li>
             <li><Link to="/grace-ai" className="hover:underline">Ask Grace (assistant)</Link></li>
+            <li><Link to="/faqs" className="hover:underline">FAQs</Link></li>
+            <li><Link to="/sustainability" className="hover:underline">Sustainability</Link></li>
             <li><Link to="/privacy" className="hover:underline">Privacy & Cookies</Link></li>
           </ul>
         </div>
@@ -145,6 +192,14 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-white/15 py-5 text-center text-white/70 text-sm">
+        <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mb-3">
+          <Link to="/faqs" className="hover:underline">FAQs</Link>
+          <Link to="/returns" className="hover:underline">Returns & Refunds</Link>
+          <Link to="/accessibility" className="hover:underline">Accessibility</Link>
+          <Link to="/cookies" className="hover:underline">Cookie Policy</Link>
+          <Link to="/terms" className="hover:underline">Terms</Link>
+          <Link to="/privacy" className="hover:underline">Privacy</Link>
+        </div>
         © {new Date().getFullYear()} Grace Cares CIC · Making care sustainable
       </div>
     </footer>

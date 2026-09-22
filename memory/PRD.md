@@ -149,3 +149,24 @@ older people; NHS & care providers; care managers (ESG); volunteers; corporate p
 ## Deferred (still open)
 - Confirm VAT declaration wording + product classifications with Grace Cares' VAT adviser.
 - Provide Xero credentials + approved mappings to switch sync from mocked to live.
+
+---
+
+## Overnight Build Log — Phases against gap analysis (plan/plan.md). Architecture kept as React SPA + FastAPI (no Next.js, per user).
+
+### Phase 1 — Search & Findability (brief Prompt 2) ✅ (backend tested 19/19, frontend verified)
+- Synonym + misspelling tolerance and multi-word matching in GET /api/products (backend/shop.py); admin-editable synonyms.
+- Type-ahead suggestions: GET /api/search/suggest (backend/search.py); header dropdown (Layout.jsx).
+- New sorts: "Biggest saving" (rrp − price) and "Biggest carbon saving"; RRP backfilled on startup; saving badges on ProductCard.
+- Search logging + monthly report (GET /api/admin/search-report); stock-alert capture (POST /api/stock-alerts) + admin list.
+- Zero-results experience: category buttons + fallback products + stock-alert form (ZeroResults.jsx).
+
+### Phase 2 — Checkout donation options (brief Prompt 4) ✅ (math verified via API + UI)
+- Round-up to nearest pound and "cover the card fee" toggles at checkout (backend/shop.py compute_order; Checkout.jsx). Totals expose donation_explicit, donation_roundup, card_fee_contribution.
+
+### Phase 3 — Missing content/trust pages (brief Prompt 7) ✅ (verified)
+- New pages + routes + footer/nav links: /faqs, /sustainability, /returns, /accessibility, /cookies (StaticPages.jsx, App.js, Layout.jsx).
+
+### Blocked — needs user input in the morning
+- External keys/accounts: Google Merchant + Meta feeds, live Xero, Google/Facebook reviews wall, Analytics/Search Console, postcode lookup (Loqate/getAddress), SMS (Twilio), email DNS (SPF/DKIM/DMARC).
+- Decision required (risky retrofit on working checkout): integer-pence money, separate atomic StockItem table w/ serial numbers, Location dimension.

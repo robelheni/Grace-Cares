@@ -25,7 +25,7 @@ import ArticleDetail from "@/pages/ArticleDetail";
 import About from "@/pages/About";
 import Contact from "@/pages/Contact";
 import GetInvolved from "@/pages/GetInvolved";
-import { Privacy, Terms } from "@/pages/StaticPages";
+import { Privacy, Terms, FAQs, Sustainability, Returns, Accessibility, CookiePolicy } from "@/pages/StaticPages";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import { ForgotPassword, ResetPassword } from "@/pages/PasswordReset";
@@ -66,6 +66,11 @@ function App() {
             <Route path="/get-involved" element={withLayout(<GetInvolved />)} />
             <Route path="/privacy" element={withLayout(<Privacy />)} />
             <Route path="/terms" element={withLayout(<Terms />)} />
+            <Route path="/faqs" element={withLayout(<FAQs />)} />
+            <Route path="/sustainability" element={withLayout(<Sustainability />)} />
+            <Route path="/returns" element={withLayout(<Returns />)} />
+            <Route path="/accessibility" element={withLayout(<Accessibility />)} />
+            <Route path="/cookies" element={withLayout(<CookiePolicy />)} />
             <Route path="/login" element={withLayout(<Login />)} />
             <Route path="/register" element={withLayout(<Register />)} />
             <Route path="/forgot-password" element={withLayout(<ForgotPassword />)} />

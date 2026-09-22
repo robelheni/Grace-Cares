@@ -13,6 +13,8 @@ export default function Checkout() {
   const [fulfilment, setFulfilment] = useState(routesPresent[0] || "hub_collection");
   const [questionnaire, setQuestionnaire] = useState({ property_type: "House", floors: "Ground floor", lift: "N/A", parking: "", access_notes: "", contact_phone: "" });
   const [donation, setDonation] = useState(0);
+  const [roundup, setRoundup] = useState(false);
+  const [coverFee, setCoverFee] = useState(false);
   const [marketing, setMarketing] = useState(false);
   const [terms, setTerms] = useState(false);
   const [vatChoice, setVatChoice] = useState("none"); // none, personal, behalf, not_qualify
@@ -33,6 +35,8 @@ export default function Checkout() {
     vat_relief_claim: claimingRelief,
     declaration: claimingRelief ? decl : null,
     donation_amount: Number(donation) || 0,
+    donation_roundup: roundup,
+    cover_card_fee: coverFee,
     marketing_consent: marketing, accept_terms: terms,
     origin_url: window.location.origin,
   });
@@ -42,7 +46,7 @@ export default function Checkout() {
     const body = buildBody(); body.accept_terms = true;
     api.post("/checkout/quote", body).then((r) => setQuote(r.data.totals)).catch(() => {});
     // eslint-disable-next-line
-  }, [items, fulfilment, donation, vatChoice, decl.for_personal_domestic_use, decl.info_accurate, decl.eligible_person_name, decl.condition_description]);
+  }, [items, fulfilment, donation, roundup, coverFee, vatChoice, decl.for_personal_domestic_use, decl.info_accurate, decl.eligible_person_name, decl.condition_description]);
 
   if (items.length === 0) { return <div className="gc-container py-20 text-center text-xl">Your basket is empty. <a href="/shop" className="text-brand-terracotta underline">Shop equipment</a></div>; }
 
@@ -168,6 +172,16 @@ export default function Checkout() {
               {[0, 5, 10, 20].map((a) => <button type="button" key={a} onClick={() => setDonation(a)} className={`rounded-full px-5 py-2.5 font-semibold border-2 ${Number(donation) === a ? "border-brand-terracotta bg-brand-terracotta text-white" : "border-brand-border"}`} data-testid={`donation-${a}`}>{a === 0 ? "No thanks" : gbp(a)}</button>)}
               <input type="number" min="0" placeholder="Other £" value={donation || ""} onChange={(e) => setDonation(e.target.value)} className="w-32 rounded-full border border-[#8C8C8C] px-4 py-2.5" data-testid="donation-custom" />
             </div>
+            <div className="mt-4 space-y-2 border-t border-brand-border pt-4">
+              <label className="flex items-start gap-3 cursor-pointer" data-testid="donation-roundup-toggle">
+                <input type="checkbox" checked={roundup} onChange={(e) => setRoundup(e.target.checked)} className="h-5 w-5 mt-0.5" data-testid="donation-roundup" />
+                <span>Round my total up to the nearest pound and donate the difference{quote && quote.donation_roundup > 0 ? <> (<span className="font-semibold text-brand-terracotta">+{gbp(quote.donation_roundup)}</span>)</> : null}.</span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer" data-testid="cover-fee-toggle">
+                <input type="checkbox" checked={coverFee} onChange={(e) => setCoverFee(e.target.checked)} className="h-5 w-5 mt-0.5" data-testid="cover-card-fee" />
+                <span>Cover the card processing fee so more of your money reaches those we help{quote && quote.card_fee_contribution > 0 ? <> (<span className="font-semibold text-brand-terracotta">+{gbp(quote.card_fee_contribution)}</span>)</> : null}.</span>
+              </label>
+            </div>
           </section>
 
           {/* Consent */}
@@ -190,7 +204,8 @@ export default function Checkout() {
                 <div key={rate} className="flex justify-between text-[#4A4A4D]"><span>VAT at {rate}</span><span>{gbp(v.vat)}</span></div>
               ))}
               {quote.delivery_total > 0 && <div className="flex justify-between"><span>Delivery</span><span>{gbp(quote.delivery_total)}</span></div>}
-              {quote.donation > 0 && <div className="flex justify-between"><span>Donation</span><span>{gbp(quote.donation)}</span></div>}
+              {quote.donation > 0 && <div className="flex justify-between"><span>Donation{quote.donation_roundup > 0 ? " (incl. round-up)" : ""}</span><span>{gbp(quote.donation)}</span></div>}
+              {quote.card_fee_contribution > 0 && <div className="flex justify-between"><span>Card fee contribution</span><span>{gbp(quote.card_fee_contribution)}</span></div>}
               {claimingRelief && quote.declaration_valid && <div className="text-[#1B5E20] font-semibold text-sm">✓ VAT relief applied to eligible items</div>}
               <div className="flex justify-between text-xl font-bold text-brand-green border-t border-brand-border pt-2 mt-2"><span>Total to pay</span><span data-testid="total-payable">{gbp(quote.total_payable)}</span></div>
             </div>

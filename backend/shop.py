@@ -1,5 +1,7 @@
 """Shop: categories, products, VAT engine, cart checkout, Stripe, orders, refunds, wishlist."""
 import os
+import re
+import math
 import random
 import string
 import stripe
@@ -20,6 +22,9 @@ shop_router = APIRouter(prefix="/api")
 
 STANDARD_VAT = 0.20
 RESERVE_MINUTES = 30
+# UK Stripe standard card fee used for the optional "cover the card fee" donation.
+CARD_FEE_PCT = 0.015
+CARD_FEE_FIXED = 0.20
 
 
 def gen_ref(prefix="GC"):
@@ -155,6 +160,7 @@ class ProductBody(BaseModel):
     description: str = ""
     condition: str = "Good"
     price_ex_vat: float
+    rrp: float = 0  # recommended retail price (new) — used to show/sort by saving
     vat_rate: float = STANDARD_VAT
     vat_relief_eligible: bool = False
     quantity_available: int = 1
@@ -185,7 +191,90 @@ def public_product(p: dict) -> dict:
     rate = p.get("vat_rate", STANDARD_VAT)
     p["price_inc_vat"] = round(ex * (1 + rate), 2)
     p["available_qty"] = max(0, p.get("quantity_available", 0) - p.get("quantity_reserved", 0))
+    rrp = p.get("rrp") or 0
+    saving = round(rrp - p["price_inc_vat"], 2) if rrp and rrp > p["price_inc_vat"] else 0.0
+    p["saving"] = saving
+    p["saving_pct"] = int(round((saving / rrp) * 100)) if rrp and saving > 0 else 0
     return p
+
+
+# ---------------- Search: synonyms, typo tolerance, logging ----------------
+# Built-in care-equipment synonyms/misspellings. Admins can extend these via
+# site_settings key "search_synonyms" (merged over these defaults).
+DEFAULT_SYNONYMS = {
+    "wheelchair": ["wheel chair", "wheelchairs", "chair on wheels", "self propelled"],
+    "commode": ["toilet chair", "toilet frame", "bedside toilet"],
+    "zimmer": ["walking frame", "walker", "zimmer frame"],
+    "walker": ["rollator", "walking frame", "zimmer"],
+    "rollator": ["walker", "walking frame"],
+    "hoist": ["patient lift", "lifter", "mobile hoist"],
+    "bed": ["profiling bed", "hospital bed", "adjustable bed"],
+    "riser recliner": ["rise recliner", "riser chair", "recliner chair"],
+    "scooter": ["mobility scooter", "mobility scooters"],
+    "stairlift": ["stair lift", "chair lift"],
+    "bath lift": ["bathlift", "bath seat"],
+    "grab rail": ["grab bar", "hand rail", "handrail"],
+    "cushion": ["pressure cushion", "seat cushion"],
+    "crutches": ["crutch", "elbow crutches"],
+    "stick": ["walking stick", "cane", "walking cane"],
+}
+
+
+async def get_synonyms() -> dict:
+    s = await db.site_settings.find_one({"key": "search_synonyms"})
+    merged = {k: list(v) for k, v in DEFAULT_SYNONYMS.items()}
+    for k, v in ((s or {}).get("map") or {}).items():
+        merged[k.lower().strip()] = list(v)
+    return merged
+
+
+async def expand_terms(q: str) -> list:
+    """Return a list of phrase variants to match (original + synonyms)."""
+    q = (q or "").strip().lower()
+    if not q:
+        return []
+    variants = {q}
+    syn = await get_synonyms()
+    # whole-query synonym match
+    if q in syn:
+        variants.update(x.lower() for x in syn[q])
+    # per-word synonym match (covers "used wheelchair" -> "wheel chair")
+    words = [w for w in re.split(r"\s+", q) if w]
+    for w in words:
+        if w in syn:
+            variants.update(x.lower() for x in syn[w])
+    variants.add(" ".join(words))
+    return list(variants)[:12]
+
+
+def _rx(term: str) -> str:
+    return re.escape(term)
+
+
+async def build_search_or(q: str) -> list:
+    """Build a MongoDB $or across name/description/sku/tags with synonym +
+    multi-word tolerance. Each variant matches as a phrase; multi-word queries
+    also match when all words appear (in any order)."""
+    variants = await expand_terms(q)
+    ors = []
+    for v in variants:
+        for field in ("name", "description", "sku", "search_terms"):
+            ors.append({field: {"$regex": _rx(v), "$options": "i"}})
+    # all-words-present tolerance on name/description
+    words = [w for w in re.split(r"\s+", (q or "").strip()) if len(w) > 1]
+    if len(words) > 1:
+        for field in ("name", "description"):
+            ors.append({"$and": [{field: {"$regex": _rx(w), "$options": "i"}} for w in words]})
+    return ors
+
+
+async def log_search(q: str, result_count: int, user=None):
+    try:
+        await db.search_logs.insert_one({
+            "query": (q or "").strip().lower(), "raw": q, "results": result_count,
+            "user_email": (user or {}).get("email") if user else None, "at": now_utc()})
+    except Exception:
+        pass
 
 
 @shop_router.get("/products")
@@ -219,20 +308,19 @@ async def list_products(
             pr["$lte"] = max_price
         query["price_ex_vat"] = pr
     if q:
-        # fuzzy-ish: case-insensitive regex across name/description/sku
-        terms = q.strip()
-        query["$or"] = [
-            {"name": {"$regex": terms, "$options": "i"}},
-            {"description": {"$regex": terms, "$options": "i"}},
-            {"sku": {"$regex": terms, "$options": "i"}},
-        ]
+        query["$or"] = await build_search_or(q)
     sort_map = {"recent": [("created_at", -1)], "price_low": [("price_ex_vat", 1)],
-                "price_high": [("price_ex_vat", -1)], "name": [("name", 1)]}
+                "price_high": [("price_ex_vat", -1)], "name": [("name", 1)],
+                "carbon": [("carbon_saving_kg", -1)], "saving": [("rrp", -1)]}
     docs = await db.products.find(query).sort(sort_map.get(sort, [("created_at", -1)])).skip(skip).limit(limit).to_list(limit)
     total = await db.products.count_documents(query)
     items = [public_product(d) for d in docs]
     if in_stock:
         items = [i for i in items if i["available_qty"] > 0]
+    if sort == "saving":
+        items.sort(key=lambda i: i.get("saving", 0), reverse=True)
+    if q:
+        await log_search(q, total)
     return {"items": items, "total": total}
 
 
@@ -381,6 +469,8 @@ class CheckoutBody(BaseModel):
     vat_relief_claim: bool = False
     declaration: Optional[DeclarationData] = None
     donation_amount: float = 0
+    donation_roundup: bool = False   # round the grand total up to the next whole pound
+    cover_card_fee: bool = False     # add a contribution covering the card processing fee
     marketing_consent: bool = False
     accept_terms: bool
     origin_url: str
@@ -445,13 +535,32 @@ async def compute_order(body: CheckoutBody):
         vat_breakdown[key]["ex"] = round(vat_breakdown[key]["ex"] + delivery_ex, 2)
         vat_breakdown[key]["vat"] = round(vat_breakdown[key]["vat"] + delivery_vat, 2)
 
-    donation = round(max(0, body.donation_amount), 2)
-    total = round(subtotal_ex + vat_total + delivery_ex + delivery_vat + donation, 2)
+    donation_explicit = round(max(0, body.donation_amount), 2)
+    base_total = round(subtotal_ex + vat_total + delivery_ex + delivery_vat + donation_explicit, 2)
+
+    # Optional: cover the card processing fee (computed on the pre-fee amount).
+    card_fee_contribution = 0.0
+    if getattr(body, "cover_card_fee", False):
+        card_fee_contribution = round(base_total * CARD_FEE_PCT + CARD_FEE_FIXED, 2)
+
+    running = round(base_total + card_fee_contribution, 2)
+
+    # Optional: round the whole payable up to the next whole pound (delta is a donation).
+    donation_roundup = 0.0
+    if getattr(body, "donation_roundup", False):
+        donation_roundup = round(math.ceil(running - 1e-9) - running, 2)
+        if donation_roundup < 0:
+            donation_roundup = 0.0
+
+    donation = round(donation_explicit + donation_roundup, 2)
+    total = round(running + donation_roundup, 2)
     totals = {
         "subtotal_ex_vat": round(subtotal_ex, 2), "vat_total": round(vat_total, 2),
         "vat_breakdown": vat_breakdown, "delivery_ex_vat": delivery_ex,
         "delivery_vat": delivery_vat, "delivery_total": round(delivery_ex + delivery_vat, 2),
-        "donation": donation, "total_payable": total,
+        "donation": donation, "donation_explicit": donation_explicit,
+        "donation_roundup": donation_roundup, "card_fee_contribution": card_fee_contribution,
+        "total_payable": total,
         "declaration_valid": declaration_valid,
     }
     return lines, totals

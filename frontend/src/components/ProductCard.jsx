@@ -39,7 +39,17 @@ export default function ProductCard({ p }) {
           <p className="text-sm text-[#1B5E20] flex items-center gap-1 mb-2"><Leaf size={15} /> Saves ~{p.carbon_saving_kg}kg CO₂e</p>
         ) : null}
         <div className="mt-auto pt-3">
-          <div className="text-2xl font-bold text-[#1A1A1D]">{gbp(p.price_inc_vat)}</div>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <div className="text-2xl font-bold text-[#1A1A1D]">{gbp(p.price_inc_vat)}</div>
+            {p.saving > 0 && p.rrp ? (
+              <span className="text-sm text-[#8C8C8C] line-through">{gbp(p.rrp)} new</span>
+            ) : null}
+          </div>
+          {p.saving > 0 ? (
+            <div className="mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full bg-brand-terracotta/10 text-brand-terracotta text-sm font-bold" data-testid={`saving-badge-${p.sku}`}>
+              Save {gbp(p.saving)}{p.saving_pct ? ` (${p.saving_pct}%)` : ""}
+            </div>
+          ) : null}
           {p.vat_relief_eligible && (
             <div className="text-sm text-brand-terracotta font-semibold">{gbp(p.price_ex_vat)} with VAT relief</div>
           )}

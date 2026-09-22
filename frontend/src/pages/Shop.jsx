@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import ProductCard from "@/components/ProductCard";
+import ZeroResults from "@/components/ZeroResults";
 import { SlidersHorizontal } from "lucide-react";
 
 export default function Shop() {
@@ -86,13 +87,13 @@ export default function Shop() {
               <option value="recent">Most recent</option>
               <option value="price_low">Price: low to high</option>
               <option value="price_high">Price: high to low</option>
+              <option value="saving">Biggest saving</option>
+              <option value="carbon">Biggest carbon saving</option>
               <option value="name">Name A–Z</option>
             </select>
           </div>
           {loading ? <p className="text-lg">Loading…</p> : data.items.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-brand-border p-10 text-center">
-              <p className="text-xl text-[#4A4A4D]">No products match your search. Try different filters, or <a href="/wishlist" className="text-brand-terracotta font-semibold underline">request an item</a>.</p>
-            </div>
+            <ZeroResults q={q} cats={cats} />
           ) : (
             <div className="grid gap-8 sm:grid-cols-2 xl:grid-cols-3">
               {data.items.map((p) => <ProductCard key={p.id} p={p} />)}

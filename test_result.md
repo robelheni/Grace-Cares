@@ -220,21 +220,96 @@ frontend:
         agent: "testing"
         comment: "✅ REACT_APP_BACKEND_URL is correctly configured as https://show-site-4.preview.emergentagent.com. All API calls use the correct base URL https://show-site-4.preview.emergentagent.com/api."
 
+backend:
+  - task: "Enhanced product search — synonyms & typo tolerance"
+    implemented: true
+    working: true
+    file: "/app/backend/shop.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/products?q= now expands synonyms (e.g. 'wheel chair' -> 'wheelchair', 'zimmer' -> 'walking frame') and does multi-word all-terms tolerance across name/description/sku/search_terms. Verify: q='wheel chair' returns wheelchairs; q='zimmer' returns walking frames; q='xyznonsense' returns 0 items."
+      - working: true
+        agent: "testing"
+        comment: "✅ PASS: Tested q='wheel chair' (found 2 wheelchair products), q='zimmer' (found 1 walking frame product via synonym expansion), q='xyznonsense' (correctly returned 0 results). Synonym expansion and search logging working correctly."
+
+  - task: "New sorts — biggest saving & biggest carbon"
+    implemented: true
+    working: true
+    file: "/app/backend/shop.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added sort=saving (by rrp - price_inc_vat, computed in public_product) and sort=carbon (by carbon_saving_kg desc). RRP backfilled on startup (~2x inc price) for products missing it. Verify /api/products?sort=saving and ?sort=carbon return 200 with items ordered; each item exposes 'saving', 'saving_pct', 'rrp'."
+      - working: true
+        agent: "testing"
+        comment: "✅ PASS: sort=saving returns items correctly ordered by descending saving (top: £456.0), all items include 'saving', 'saving_pct', 'rrp' fields. sort=carbon returns items correctly ordered by descending carbon_saving_kg (top: 120.0kg). Both endpoints return 200 with proper data."
+
+  - task: "Type-ahead suggestions endpoint"
+    implemented: true
+    working: true
+    file: "/app/backend/search.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/search/suggest?q= returns {products[], categories[], did_you_mean}. Verify q='wheel' returns products; q with <2 chars returns empty arrays; synonym-only query surfaces did_you_mean."
+      - working: true
+        agent: "testing"
+        comment: "✅ PASS: q='wheel' returned 3 products and 0 categories. q='w' (1 char) correctly returned empty arrays (guard for <2 chars working). Response structure includes products, categories, did_you_mean fields as expected."
+
+  - task: "Stock alerts capture + admin list"
+    implemented: true
+    working: true
+    file: "/app/backend/search.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/stock-alerts {email, query} (public, returns ok). GET /api/admin/stock-alerts requires shop_admin. Verify unauth POST works, and admin GET requires auth (401/403 without login, 200 with admin cookie)."
+      - working: true
+        agent: "testing"
+        comment: "✅ PASS: POST /api/stock-alerts without auth successfully created alert (200 {ok:true}). GET /api/admin/stock-alerts without auth correctly returned 401 (protected). GET with admin cookie returned 200 with list of alerts including the test alert. Auth protection working correctly."
+
+  - task: "Search reporting + synonyms admin"
+    implemented: true
+    working: true
+    file: "/app/backend/search.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "GET /api/admin/search-report?days=30 (shop_admin) returns top_queries + zero_result_queries from search_logs. GET/PUT /api/admin/search-synonyms manage custom synonyms. Verify admin-gated; report reflects logged searches; PUT persists custom map that then affects /api/products search."
+      - working: true
+        agent: "testing"
+        comment: "✅ PASS: All endpoints correctly protected (401 without auth). GET /api/admin/search-report returned total_searches:5, zero_result_searches:3, top_queries (4 items), zero_result_queries including 'xyznonsense'. GET /api/admin/search-synonyms returned defaults (15 terms) and custom map. PUT /api/admin/search-synonyms successfully persisted custom synonym 'loo'->'commode,toilet aid', verified persistence and search functionality with custom synonym."
+
 metadata:
-  created_by: "testing_agent"
-  version: "1.1"
-  test_sequence: 2
-  run_ui: true
+  created_by: "main_agent"
+  version: "1.3"
+  test_sequence: 4
+  run_ui: false
 
 test_plan:
-  current_focus:
-    - "Webpack dev server overlay bug fix verification completed"
+  current_focus: []
   stuck_tasks: []
-  test_all: true
+  test_all: false
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "main"
+    message: "Phase 1 (Search & Findability, brief Prompt 2) backend implemented. Admin login for gated endpoints: paul@cass-online.co.uk / GraceCares2026! (login via POST /api/auth/login, sets httpOnly cookies). Please test the 5 new backend tasks above. Do NOT retest the previously-passing connectivity tasks. Focus: synonym search, new sorts, suggest endpoint, stock-alerts (public POST + admin-gated GET), and admin search-report/synonyms."
   - agent: "testing"
-    message: "✅ VERIFICATION COMPLETE: The previously reported 'Network Error / AxiosError: Network Error' issue is RESOLVED. All backend API calls are working correctly. Tested all requested pages (Homepage, Shop, Product Detail, Impact, Events, News, Cart) and confirmed data loads successfully from https://show-site-4.preview.emergentagent.com/api. The only errors detected are: (1) Expected 401 from /api/auth/me for logged-out users, and (2) Cloudflare RUM monitoring errors (cdn-cgi/rum) which are unrelated to backend API. NO Network Error or CORS issues found."
-  - agent: "testing"
-    message: "✅ BUG FIX VERIFICATION COMPLETE: The webpack-dev-server overlay bug fix is working correctly. Tested both scenarios: (1) Normal browsing - no overlay on any page, (2) Simulated network failures - even with aborted API requests causing Network Errors, no overlay appeared. The craco.config.js runtimeErrors filter successfully suppresses transient axios network/canceled errors while keeping the site functional. Console logs show errors are still logged but not displayed in the full-screen overlay. PASS on both scenarios."
+    message: "✅ ALL PHASE 1 BACKEND TESTS PASSED (19/19 - 100%). All 5 tasks working correctly: (1) Enhanced search with synonym expansion ('wheel chair'->wheelchair, 'zimmer'->walking frame), (2) New sorts (saving & carbon) with proper field exposure, (3) Type-ahead with <2 char guard, (4) Stock alerts (public POST + admin-gated GET), (5) Search reporting & admin synonyms with full CRUD + persistence. All admin endpoints correctly protected (401 without auth). Search logging working, custom synonyms persist and affect search results. No issues found."
