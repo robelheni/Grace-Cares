@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import JsonLd from "@/components/JsonLd";
+import FinderWizard from "@/components/FinderWizard";
 import { Link } from "react-router-dom";
 import { api, gbp } from "@/lib/api";
 import { ShoppingBasket, HandHeart, LifeBuoy, Leaf, ArrowRight, Recycle, PoundSterling, Search } from "lucide-react";
@@ -18,6 +20,7 @@ const ROUTES = [
 export default function Home() {
   const [products, setProducts] = useState([]);
   const [home, setHome] = useState({ impact_stats: [], partners: [], testimonials: [], settings: {} });
+  const [site, setSite] = useState({});
   const [events, setEvents] = useState([]);
   const [articles, setArticles] = useState([]);
   const [q, setQ] = useState("");
@@ -27,6 +30,7 @@ export default function Home() {
   useEffect(() => {
     api.get("/products?limit=6&sort=recent").then((r) => setProducts(r.data.items));
     api.get("/homepage").then((r) => setHome(r.data));
+    api.get("/content/site").then((r) => setSite(r.data)).catch(() => {});
     api.get("/events").then((r) => setEvents(r.data.slice(0, 3)));
     api.get("/articles").then((r) => setArticles(r.data.slice(0, 2)));
   }, []);
@@ -39,14 +43,15 @@ export default function Home() {
 
   return (
     <div>
+      <JsonLd data={{ "@context": "https://schema.org", "@type": "Organization", name: "Grace Cares", url: (process.env.REACT_APP_BACKEND_URL || ""), telephone: "01543 730189", address: { "@type": "PostalAddress", addressLocality: "Lichfield", addressRegion: "Staffordshire", addressCountry: "GB" }, description: site.hero_body } } />
       {/* Hero */}
       <section className="bg-brand-bone">
         <div className="gc-container py-14 md:py-20 grid md:grid-cols-2 gap-10 items-center">
           <div className="animate-fade-up">
-            <span className="inline-flex items-center gap-2 bg-[#E8F5E9] text-[#1B5E20] font-bold px-4 py-1.5 rounded-full text-sm mb-5"><Recycle size={16} /> Award-winning not-for-profit CIC</span>
-            <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-brand-green">{home.settings.headline || "Affordable care equipment. Meaningful social impact."}</h1>
-            <p className="mt-3 font-heading text-2xl font-semibold text-brand-green/80">{home.settings.mission || "Let's Make Care Sustainable."}</p>
-            <p className="mt-4 text-xl text-[#2D2D30] max-w-xl">{home.settings.subheadline || "We rescue, refurbish and resell used care and mobility equipment at half the RRP or less."}</p>
+            <span className="inline-flex items-center gap-2 bg-[#E8F5E9] text-[#1B5E20] font-bold px-4 py-1.5 rounded-full text-sm mb-5"><Recycle size={16} /> {site.hero_eyebrow || "Award-winning not-for-profit CIC"}</span>
+            <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-brand-green">{site.hero_title || home.settings.headline || "Affordable care equipment. Meaningful social impact."}</h1>
+            <p className="mt-3 font-heading text-2xl font-semibold text-brand-green/80">{site.hero_highlight || home.settings.mission || "Let's Make Care Sustainable."}</p>
+            <p className="mt-4 text-xl text-[#2D2D30] max-w-xl">{site.hero_body || home.settings.subheadline || "We rescue, refurbish and resell used care and mobility equipment at half the RRP or less."}</p>
             <form onSubmit={(e) => { e.preventDefault(); nav(`/shop?q=${encodeURIComponent(q)}`); }} className="mt-7 flex gap-2 max-w-lg" data-testid="hero-search-form">
               <div className="relative flex-1">
                 <Search size={22} className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-green" />
@@ -56,12 +61,21 @@ export default function Home() {
             </form>
           </div>
           <div className="relative">
-            <div className="rounded-2xl w-full aspect-[4/3] bg-brand-bone border-2 border-dashed border-brand-green/40 flex flex-col items-center justify-center text-center p-6" data-testid="hero-photo-placeholder">
-              <span className="font-heading text-xl font-bold text-brand-green">REAL PHOTO TO REPLACE</span>
-              <span className="text-base text-[#4A4A4D] mt-2">Real Grace Cares photograph — the unit, van, volunteers or a customer (with recorded permission).</span>
-            </div>
+            {site.hero_image ? (
+              <img src={site.hero_image} alt="Grace Cares" className="rounded-2xl w-full aspect-[4/3] object-cover" data-testid="hero-photo" />
+            ) : (
+              <div className="rounded-2xl w-full aspect-[4/3] bg-brand-bone border-2 border-dashed border-brand-green/40 flex flex-col items-center justify-center text-center p-6" data-testid="hero-photo-placeholder">
+                <span className="font-heading text-xl font-bold text-brand-green">REAL PHOTO TO REPLACE</span>
+                <span className="text-base text-[#4A4A4D] mt-2">Real Grace Cares photograph — the unit, van, volunteers or a customer (with recorded permission).</span>
+              </div>
+            )}
           </div>
         </div>
+      </section>
+
+      {/* Guided finder */}
+      <section className="gc-container -mt-6 md:-mt-10 relative z-10">
+        <FinderWizard />
       </section>
 
       {/* Four routes */}

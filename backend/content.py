@@ -553,6 +553,8 @@ async def submit_enquiry(body: EnquiryBody):
                 "sensitive": body.enquiry_type in SENSITIVE_ENQUIRY_TYPES,
                 "created_at": now_utc()})
     await db.enquiries.insert_one(doc)
+    from engage import upsert_contact
+    await upsert_contact(body.email, body.name, ["enquiry"], "enquiry")
     try:
         await send_enquiry_ack(doc)
     except Exception as ex:
@@ -586,6 +588,10 @@ async def newsletter_signup(body: NewsletterBody):
     if not body.consent:
         raise HTTPException(400, "Please tick the consent box to subscribe")
     await upsert_subscriber(body.email, body.name or "", "newsletter", ["newsletter"])
+    from engage import upsert_contact, record_consent
+    await upsert_contact(body.email, body.name or "", ["newsletter"], "newsletter")
+    await record_consent(body.email, "marketing", "email", "granted",
+                         "Newsletter sign-up", 1, "newsletter_form")
     return {"ok": True}
 
 

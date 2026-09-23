@@ -6,16 +6,18 @@ import { VatReliefBadge, ConditionBadge } from "@/components/ProductCard";
 import ProductCard from "@/components/ProductCard";
 import { Leaf, Truck, Package, AlertTriangle, Info, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
+import Reviews from "@/components/Reviews";
 
 export default function ProductDetail() {
   const { id } = useParams();
   const [p, setP] = useState(null);
   const [img, setImg] = useState(0);
   const [qty, setQty] = useState(1);
+  const [rating, setRating] = useState({ average: 0, count: 0 });
   const [req, setReq] = useState({ name: "", email: "" });
   const { add } = useCart();
 
-  useEffect(() => { window.scrollTo(0, 0); api.get(`/products/${id}`).then((r) => { setP(r.data); setImg(0); setQty(1); }); }, [id]);
+  useEffect(() => { window.scrollTo(0, 0); api.get(`/products/${id}`).then((r) => { setP(r.data); setImg(0); setQty(1); }); api.get(`/products/${id}/reviews`).then((r) => setRating(r.data.aggregate || { average: 0, count: 0 })).catch(() => {}); }, [id]);
 
   useEffect(() => {
     if (!p) return;
@@ -24,12 +26,15 @@ export default function ProductDetail() {
       itemCondition: "https://schema.org/UsedCondition",
       offers: { "@type": "Offer", price: p.price_inc_vat, priceCurrency: "GBP",
         availability: (p.available_qty > 0) ? "https://schema.org/InStock" : "https://schema.org/SoldOut" } };
+    if (rating.count > 0) {
+      ld.aggregateRating = { "@type": "AggregateRating", ratingValue: rating.average, reviewCount: rating.count };
+    }
     const el = document.createElement("script");
     el.type = "application/ld+json"; el.id = "product-jsonld"; el.text = JSON.stringify(ld);
     document.getElementById("product-jsonld")?.remove();
     document.head.appendChild(el);
     return () => document.getElementById("product-jsonld")?.remove();
-  }, [p]);
+  }, [p, rating]);
 
   if (!p) return <div className="gc-container py-20 text-center text-xl">Loading…</div>;
   const soldOut = (p.available_qty ?? 0) <= 0;
@@ -135,6 +140,8 @@ export default function ProductDetail() {
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">{p.related.map((r) => <ProductCard key={r.id} p={r} />)}</div>
         </div>
       )}
+
+      <Reviews productId={p.id} />
     </div>
   );
 }

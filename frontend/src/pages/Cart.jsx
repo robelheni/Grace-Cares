@@ -1,12 +1,25 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useCart } from "@/context/CartContext";
-import { gbp } from "@/lib/api";
-import { Trash2, Minus, Plus, ShoppingBasket } from "lucide-react";
+import { api, gbp } from "@/lib/api";
+import { Trash2, Minus, Plus, ShoppingBasket, Share2, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Cart() {
   const { items, setQty, remove } = useCart();
   const subtotalEx = items.reduce((s, i) => s + i.price_ex_vat * i.quantity, 0);
+  const [shareUrl, setShareUrl] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const shareBasket = async () => {
+    try {
+      const r = await api.post("/baskets", { items: items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })) });
+      const url = `${window.location.origin}${r.data.share_path}`;
+      setShareUrl(url);
+      toast.success("Shareable basket link created");
+    } catch { toast.error("Could not create a share link."); }
+  };
+  const copy = async () => { try { await navigator.clipboard.writeText(shareUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* noop */ } };
 
   if (items.length === 0) return (
     <div className="gc-container py-20 text-center" data-testid="empty-cart">
@@ -46,6 +59,13 @@ export default function Cart() {
           <div className="flex justify-between mb-2 text-lg"><span>Subtotal (excl. VAT)</span><span className="font-bold">{gbp(subtotalEx)}</span></div>
           <p className="text-sm text-[#4A4A4D] mb-4">VAT and delivery are calculated at checkout, based on your VAT-relief eligibility.</p>
           <Link to="/checkout" className="block text-center bg-brand-green text-white rounded-full px-6 py-3.5 font-semibold text-lg hover:bg-brand-greenhover transition-colors" data-testid="checkout-btn">Go to checkout</Link>
+          <button onClick={shareBasket} className="w-full mt-3 flex items-center justify-center gap-2 border-2 border-brand-green text-brand-green rounded-full px-6 py-2.5 font-semibold hover:bg-brand-green hover:text-white transition-colors" data-testid="share-basket-btn"><Share2 size={18} /> Save & share basket</button>
+          {shareUrl && (
+            <div className="mt-3 flex items-center gap-2 bg-brand-green/5 rounded-lg p-2" data-testid="share-url-box">
+              <input readOnly value={shareUrl} className="flex-1 bg-transparent text-sm px-2 py-1 outline-none" />
+              <button onClick={copy} className="text-brand-green" aria-label="Copy link">{copied ? <Check size={18} /> : <Copy size={18} />}</button>
+            </div>
+          )}
           <Link to="/shop" className="block text-center mt-3 text-brand-green font-semibold hover:underline">Continue shopping</Link>
         </div>
       </div>

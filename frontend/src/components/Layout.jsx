@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
-import { Menu, X, ShoppingBasket, User, Search, Heart, Phone, Megaphone } from "lucide-react";
+import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
+import { Menu, X, ShoppingBasket, User, Search, Heart, Phone, Megaphone, SlidersHorizontal } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 
 const NAV = [
   { to: "/shop", label: "Shop Care Equipment" },
+  { to: "/bundles", label: "Bundles" },
   { to: "/donate-equipment", label: "Donate Equipment" },
   { to: "/get-help", label: "Get Help & Support" },
   { to: "/nhs", label: "NHS & Care Providers" },
@@ -27,7 +28,29 @@ export function Header() {
   const { user } = useAuth();
   const nav = useNavigate();
   const [announce, setAnnounce] = useState(null);
-  useEffect(() => { api.get("/homepage").then((r) => { const s = r.data.settings || {}; if (s.announcement_active && s.announcement_text) setAnnounce(s); }).catch(() => {}); }, []);
+  const [annDismissed, setAnnDismissed] = useState(false);
+  const location = useLocation();
+  useEffect(() => {
+    api.get("/announcement").then((r) => {
+      const a = r.data || {};
+      if (a.active) setAnnounce(a);
+      else setAnnounce(null);
+    }).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (announce) {
+      const key = `gc_announce_dismissed_v${announce.version}`;
+      setAnnDismissed(localStorage.getItem(key) === "1");
+    }
+  }, [announce, location.pathname]);
+  const dismissAnnounce = () => {
+    if (!announce) return;
+    localStorage.setItem(`gc_announce_dismissed_v${announce.version}`, "1");
+    setAnnDismissed(true);
+  };
+  const annPathOk = !announce || !announce.paths || announce.paths.length === 0 ||
+    announce.paths.some((p) => location.pathname === p || location.pathname.startsWith(p));
+  const showAnnounce = announce && annPathOk && !annDismissed;
   const isAdmin = user && user.role && user.role !== "customer";
 
   // Predictive type-ahead (debounced)
@@ -50,10 +73,15 @@ export function Header() {
 
   return (
     <header className="bg-white border-b border-brand-border sticky top-0 z-50" data-testid="site-header">
-      {announce && (
-        <Link to={announce.announcement_link || "/shop"} className="block bg-brand-lime text-[#003d20] text-center text-sm font-bold py-2 px-4 hover:underline" data-testid="announcement-bar">
-          <Megaphone size={16} className="inline mr-2" />{announce.announcement_text}
-        </Link>
+      {showAnnounce && (
+        <div className="relative bg-brand-lime text-[#003d20]" data-testid="announcement-bar">
+          <Link to={announce.link || "/shop"} className="block text-center text-sm font-bold py-2 px-10 hover:underline">
+            <Megaphone size={16} className="inline mr-2" />{announce.text}
+          </Link>
+          {announce.dismissible && (
+            <button onClick={dismissAnnounce} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:opacity-70" aria-label="Dismiss announcement" data-testid="announcement-dismiss"><X size={16} /></button>
+          )}
+        </div>
       )}
       <div className="bg-brand-green text-white text-sm">
         <div className="gc-container flex items-center justify-between py-1.5">
@@ -164,6 +192,8 @@ export function Footer() {
           <h4 className="font-heading font-bold text-lg mb-3">Explore</h4>
           <ul className="space-y-2 text-white/80">
             <li><Link to="/shop" className="hover:underline">Shop Equipment</Link></li>
+            <li><Link to="/bundles" className="hover:underline">Bundles</Link></li>
+            <li><Link to="/track" className="hover:underline">Track my order</Link></li>
             <li><Link to="/donate-equipment" className="hover:underline">Donate Equipment</Link></li>
             <li><Link to="/events" className="hover:underline">Events</Link></li>
             <li><Link to="/resources" className="hover:underline">Care Provider Resources</Link></li>

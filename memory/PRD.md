@@ -170,3 +170,19 @@ older people; NHS & care providers; care managers (ESG); volunteers; corporate p
 ### Blocked — needs user input in the morning
 - External keys/accounts: Google Merchant + Meta feeds, live Xero, Google/Facebook reviews wall, Analytics/Search Console, postcode lookup (Loqate/getAddress), SMS (Twilio), email DNS (SPF/DKIM/DMARC).
 - Decision required (risky retrofit on working checkout): integer-pence money, separate atomic StockItem table w/ serial numbers, Location dimension.
+
+---
+
+## Overnight Build Log — Batch 2 (9-feature list). Backend 46/46 tests PASS; key frontend verified via screenshots. Checkout/stock model untouched.
+
+1. CMS (cms.py, ManageAdmin.jsx at /manage): DB-stored editable homepage hero + arbitrary pages (/p/:slug), image upload, draft/publish. Home hero now served dynamically from /api/content/site.
+2. Guided finder wizard (FinderWizard on homepage) + need-based landing pages (/needs/:slug; seeded 3) via /api/finder + /api/landing.
+3. Product JSON-LD structured data (JsonLd.jsx): Product+Offer+AggregateRating on product pages, Organization on home, WebPage on landing/CMS pages.
+4. First-party reviews tied to orders with AggregateRating (engage.py reviews; Reviews.jsx on product page; moderation in /manage). Review requires a matching order reference+email.
+5. Announcement bar scheduling (start/end), path targeting, and per-version sticky dismissal (Layout.jsx + /manage editor).
+6. Unified CRM Contact + ConsentRecord model (engage.py): backfill from subscribers/enquiries/orders/donations, live capture on newsletter/enquiry, admin list + CSV export + consent withdraw.
+7. No-account order tracking via HMAC-signed link (/track; /api/track + /api/track/request).
+8. Save & share basket (/api/baskets; Cart 'Save & share' button; /b/:token loader).
+9. Bundles — hospital discharge / bedroom / bathroom (/bundles, /bundles/:slug; add-all-to-basket).
+
+Nav/footer updated (Bundles, Track my order). Admin creds: paul@cass-online.co.uk / GraceCares2026!

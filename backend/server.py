@@ -16,6 +16,8 @@ from extra import extra_router
 from receipts import receipts_router
 from seed_data import seed_all
 from search import search_router
+from cms import cms_router, seed_cms
+from engage import engage_router, backfill_contacts
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("grace_cares")
@@ -29,6 +31,8 @@ app.include_router(admin_router)
 app.include_router(extra_router)
 app.include_router(receipts_router)
 app.include_router(search_router)
+app.include_router(cms_router)
+app.include_router(engage_router)
 
 
 @app.get("/api/")
@@ -50,6 +54,10 @@ async def startup():
     await db.orders.create_index("reference")
     await db.search_logs.create_index("at")
     await db.search_logs.create_index("query")
+    await db.contacts.create_index("email", unique=True)
+    await db.reviews.create_index("product_id")
+    await db.saved_baskets.create_index("token", unique=True)
+    await db.cms_pages.create_index("slug", unique=True)
     await seed_admin()
     await seed_all()
     # One-time backfill: give products a plausible RRP (~2x resale) so the
@@ -62,6 +70,11 @@ async def startup():
             await db.products.update_one({"_id": p["_id"]}, {"$set": {"rrp": rrp}})
     except Exception as e:
         logger.warning(f"rrp backfill skipped: {e}")
+    try:
+        await seed_cms()
+        await backfill_contacts()
+    except Exception as e:
+        logger.warning(f"cms/crm seed skipped: {e}")
     logger.info("Startup complete")
 
 

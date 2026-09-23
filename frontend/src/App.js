@@ -33,6 +33,12 @@ import Account from "@/pages/Account";
 import Admin from "@/pages/Admin";
 import GraceAI from "@/pages/GraceAI";
 import NotFound from "@/pages/NotFound";
+import CmsPage from "@/pages/CmsPage";
+import NeedLanding from "@/pages/NeedLanding";
+import { Bundles, BundleDetail } from "@/pages/BundlesPages";
+import Track from "@/pages/Track";
+import SharedBasket from "@/pages/SharedBasket";
+import ManageAdmin from "@/pages/ManageAdmin";
 
 const withLayout = (el) => <Layout>{el}</Layout>;
 
@@ -77,6 +83,13 @@ function App() {
             <Route path="/reset-password" element={withLayout(<ResetPassword />)} />
             <Route path="/account" element={withLayout(<Account />)} />
             <Route path="/grace-ai" element={withLayout(<GraceAI />)} />
+            <Route path="/bundles" element={withLayout(<Bundles />)} />
+            <Route path="/bundles/:slug" element={withLayout(<BundleDetail />)} />
+            <Route path="/needs/:slug" element={withLayout(<NeedLanding />)} />
+            <Route path="/track" element={withLayout(<Track />)} />
+            <Route path="/b/:token" element={withLayout(<SharedBasket />)} />
+            <Route path="/p/:slug" element={withLayout(<CmsPage />)} />
+            <Route path="/manage" element={withLayout(<ManageAdmin />)} />
             <Route path="/admin" element={<Admin />} />
             <Route path="*" element={withLayout(<NotFound />)} />
           </Routes>
